@@ -25,18 +25,23 @@ defmodule Samly.Provider do
   alias Samly.{State}
 
   @doc false
-  def start_link(gs_opts \\ []) do
-    GenServer.start_link(__MODULE__, [], gs_opts)
+  def start_link(opts \\ []) do
+    gs_opts = Keyword.take(opts, ~w"name timeout debug spawn_opt hibernate_after"a)
+    provider_opts = opts -- gs_opts
+    GenServer.start_link(__MODULE__, provider_opts, gs_opts)
   end
 
   @doc false
-  def init([]) do
+  def init(opts) do
     store_env = Application.get_env(:samly, Samly.State, [])
     store_provider = store_env[:store] || Samly.State.ETS
     store_opts = store_env[:opts] || []
     State.init(store_provider, store_opts)
 
-    opts = Application.get_env(:samly, Samly.Provider, [])
+    opts =
+      :samly
+      |> Application.get_env(Samly.Provider, [])
+      |> Keyword.merge(opts)
 
     # must be done prior to loading the providers
     idp_id_from =
