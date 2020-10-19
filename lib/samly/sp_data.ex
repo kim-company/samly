@@ -16,7 +16,8 @@ defmodule Samly.SpData do
             org_url: "",
             cert: :undefined,
             key: :undefined,
-            valid?: true
+            valid?: true,
+            requested_context: nil
 
   @type t :: %__MODULE__{
           id: binary(),
@@ -30,10 +31,14 @@ defmodule Samly.SpData do
           org_url: binary(),
           cert: :undefined | binary(),
           key: :undefined | :RSAPrivateKey,
-          valid?: boolean()
+          valid?: boolean(),
+          requested_context: requested_context() | nil
         }
 
   @type id :: binary
+  @type requested_context :: %{
+    optional(:class_refs | :decl_refs) => [binary()]
+  }
 
   @default_contact_name "Samly SP Admin"
   @default_contact_email "admin@samly"
@@ -61,7 +66,8 @@ defmodule Samly.SpData do
       contact_email: Map.get(opts_map, :contact_email, @default_contact_email),
       org_name: Map.get(opts_map, :org_name, @default_org_name),
       org_displayname: Map.get(opts_map, :org_displayname, @default_org_displayname),
-      org_url: Map.get(opts_map, :org_url, @default_org_url)
+      org_url: Map.get(opts_map, :org_url, @default_org_url),
+      requested_context: Map.get(opts_map, :requested_context, :unknown)
     }
 
     sp_data |> set_id(opts_map) |> load_cert(opts_map) |> load_key(opts_map)

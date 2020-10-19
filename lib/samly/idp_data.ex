@@ -353,7 +353,8 @@ defmodule Samly.IdpData do
       metadata_uri: Helper.get_metadata_uri(idp_data.base_url, path_segment_idp_id),
       consume_uri: Helper.get_consume_uri(idp_data.base_url, path_segment_idp_id),
       logout_uri: Helper.get_logout_uri(idp_data.base_url, path_segment_idp_id),
-      entity_id: sp_entity_id
+      entity_id: sp_entity_id,
+      requested_context: to_requested_context(sp_data.requested_context)
     )
   end
 
@@ -424,5 +425,13 @@ defmodule Samly.IdpData do
     xpath
     |> SweetXml.add_namespace("md", "urn:oasis:names:tc:SAML:2.0:metadata")
     |> SweetXml.add_namespace("ds", "http://www.w3.org/2000/09/xmldsig#")
+  end
+
+  defp to_requested_context(nil), do: :unknown
+  defp to_requested_context(requested_context) when is_map(requested_context) do
+    Esaml.esaml_requested_authn_context(
+      class_ref: Map.get(requested_context, :class_ref, []) |> Enum.map(&String.to_charlist/1),
+      decl_ref: Map.get(requested_context, :decl_ref, []) |> Enum.map(&String.to_charlist/1)
+    )
   end
 end

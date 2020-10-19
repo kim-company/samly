@@ -12,6 +12,7 @@ defmodule Samly.Esaml do
   defrecord :esaml_sp_metadata, extract(:esaml_sp_metadata, from_lib: @esaml_hrl)
   defrecord :esaml_idp_metadata, extract(:esaml_idp_metadata, from_lib: @esaml_hrl)
   defrecord :esaml_authnreq, extract(:esaml_authnreq, from_lib: @esaml_hrl)
+  defrecord :esaml_requested_authn_context, extract(:esaml_requested_authn_context, from_lib: @esaml_hrl)
   defrecord :esaml_subject, extract(:esaml_subject, from_lib: @esaml_hrl)
   defrecord :esaml_assertion, extract(:esaml_assertion, from_lib: @esaml_hrl)
   defrecord :esaml_logoutreq, extract(:esaml_logoutreq, from_lib: @esaml_hrl)
