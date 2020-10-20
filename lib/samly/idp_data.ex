@@ -15,11 +15,14 @@ defmodule Samly.IdpData do
             base_url: nil,
             metadata_file: nil,
             pre_session_create_pipeline: nil,
+            post_signout_request_pipeline: nil,
+            post_signout_response_pipeline: nil,
             use_redirect_for_req: false,
             sign_requests: true,
             sign_metadata: true,
             signed_assertion_in_resp: true,
             signed_envelopes_in_resp: true,
+            signs_logout_requests: true,
             allow_idp_initiated_flow: false,
             allowed_target_urls: [],
             entity_id: "",
@@ -41,6 +44,8 @@ defmodule Samly.IdpData do
           base_url: nil | binary(),
           metadata_file: nil | binary(),
           pre_session_create_pipeline: nil | module(),
+          post_signout_request_pipeline: nil | module(),
+          post_signout_response_pipeline: nil | module(),
           use_redirect_for_req: boolean(),
           sign_requests: boolean(),
           sign_metadata: boolean(),
@@ -110,7 +115,7 @@ defmodule Samly.IdpData do
        when is_binary(id) and is_binary(sp_id) do
     %IdpData{idp_data | id: id, sp_id: sp_id, base_url: Map.get(opts_map, :base_url)}
     |> set_metadata_file(opts_map)
-    |> set_pipeline(opts_map)
+    |> set_pipelines(opts_map)
     |> set_allowed_target_urls(opts_map)
     |> set_boolean_attr(opts_map, :use_redirect_for_req)
     |> set_boolean_attr(opts_map, :sign_requests)
@@ -118,6 +123,7 @@ defmodule Samly.IdpData do
     |> set_boolean_attr(opts_map, :signed_assertion_in_resp)
     |> set_boolean_attr(opts_map, :signed_envelopes_in_resp)
     |> set_boolean_attr(opts_map, :allow_idp_initiated_flow)
+    |> set_boolean_attr(opts_map, :signs_logout_requests)
   end
 
   @spec load_metadata(%IdpData{}, map()) :: %IdpData{}
@@ -187,10 +193,17 @@ defmodule Samly.IdpData do
     %IdpData{idp_data | metadata_file: Map.get(opts_map, :metadata_file, @default_metadata_file)}
   end
 
-  @spec set_pipeline(%IdpData{}, map()) :: %IdpData{}
-  defp set_pipeline(%IdpData{} = idp_data, %{} = opts_map) do
-    pipeline = Map.get(opts_map, :pre_session_create_pipeline)
-    %IdpData{idp_data | pre_session_create_pipeline: pipeline}
+  @spec set_pipelines(%IdpData{}, map()) :: %IdpData{}
+  defp set_pipelines(%IdpData{} = idp_data, %{} = opts_map) do
+    pre_session = Map.get(opts_map, :pre_session_create_pipeline)
+    post_signout_request = Map.get(opts_map, :post_signout_request_pipeline)
+    post_signout_response = Map.get(opts_map, :post_signout_response_pipeline)
+
+    %IdpData{idp_data |
+      pre_session_create_pipeline: pre_session,
+      post_signout_request_pipeline: post_signout_request,
+      post_signout_response_pipeline: post_signout_response
+    }
   end
 
   defp set_allowed_target_urls(%IdpData{} = idp_data, %{} = opts_map) do
@@ -349,6 +362,7 @@ defmodule Samly.IdpData do
       sp_sign_metadata: idp_data.sign_metadata,
       idp_signs_envelopes: idp_data.signed_envelopes_in_resp,
       idp_signs_assertions: idp_data.signed_assertion_in_resp,
+      idp_signs_logout_requests: idp_data.signs_logout_requests,
       trusted_fingerprints: idp_data.fingerprints,
       metadata_uri: Helper.get_metadata_uri(idp_data.base_url, path_segment_idp_id),
       consume_uri: Helper.get_consume_uri(idp_data.base_url, path_segment_idp_id),
