@@ -30,9 +30,9 @@ defmodule Samly.SPHandler do
     %IdpData{pre_session_create_pipeline: pipeline, esaml_sp_rec: sp_rec} = idp
     sp = ensure_sp_uris_set(sp_rec, conn)
 
-    saml_encoding = conn.body_params["SAMLEncoding"]
-    saml_response = conn.body_params["SAMLResponse"]
-    relay_state = conn.body_params["RelayState"] |> safe_decode_www_form()
+    saml_encoding = conn.params["SAMLEncoding"]
+    saml_response = conn.params["SAMLResponse"]
+    relay_state = conn.params["RelayState"] |> safe_decode_www_form()
 
     with {:ok, assertion} <- Helper.decode_idp_auth_resp(sp, saml_encoding, saml_response),
          :ok <- validate_authresp(conn, assertion, relay_state),
