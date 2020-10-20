@@ -121,7 +121,7 @@ defmodule Samly.SPHandler do
 
   def handle_logout_response(conn) do
     %IdpData{id: idp_id} = idp = conn.private[:samly_idp]
-    %IdpData{esaml_idp_rec: _idp_rec, esaml_sp_rec: sp_rec} = idp
+    %IdpData{esaml_idp_rec: _idp_rec, esaml_sp_rec: sp_rec, post_signout_response_pipeline: pipeline} = idp
     sp = ensure_sp_uris_set(sp_rec, conn)
 
     saml_encoding = conn.params["SAMLEncoding"]
@@ -131,12 +131,17 @@ defmodule Samly.SPHandler do
     with {:ok, _payload} <- Helper.decode_idp_signout_resp(sp, saml_encoding, saml_response),
          ^relay_state when relay_state != nil <- get_session(conn, "relay_state"),
          ^idp_id <- get_session(conn, "idp_id"),
-         target_url when target_url != nil <- get_session(conn, "target_url") do
+         target_url when target_url != nil <- get_session(conn, "target_url"),
+         {:halted, %Conn{halted: false} = conn} <- {:halted, pipethrough(conn, pipeline)} do
       conn
       |> configure_session(drop: true)
       |> redirect(302, target_url)
     else
-      error -> conn |> send_resp(403, "invalid_request #{inspect(error)}")
+      {:halted, conn} ->
+        conn
+
+      error ->
+        send_resp(conn, 403, "invalid_request #{inspect(error)}")
     end
 
     # rescue
@@ -148,21 +153,26 @@ defmodule Samly.SPHandler do
   # non-ui logout request from IDP
   def handle_logout_request(conn) do
     %IdpData{id: idp_id} = idp = conn.private[:samly_idp]
-    %IdpData{esaml_idp_rec: idp_rec, esaml_sp_rec: sp_rec} = idp
+    %IdpData{esaml_idp_rec: idp_rec, esaml_sp_rec: sp_rec, post_signout_request_pipeline: pipeline} = idp
     sp = ensure_sp_uris_set(sp_rec, conn)
 
-    saml_encoding = conn.body_params["SAMLEncoding"]
-    saml_request = conn.body_params["SAMLRequest"]
-    relay_state = conn.body_params["RelayState"] |> safe_decode_www_form()
+    saml_encoding = conn.params["SAMLEncoding"]
+    saml_request = conn.params["SAMLRequest"]
+    relay_state = conn.params["RelayState"] |> safe_decode_www_form()
 
     with {:ok, payload} <- Helper.decode_idp_signout_req(sp, saml_encoding, saml_request) do
       Esaml.esaml_logoutreq(name: nameid, issuer: _issuer) = payload
+      nameid = to_string(nameid)
       assertion_key = {idp_id, nameid}
 
       {conn, return_status} =
         case State.get_assertion(conn, assertion_key) do
           %Assertion{idp_id: ^idp_id, subject: %Subject{name: ^nameid}} ->
-            conn = State.delete_assertion(conn, assertion_key)
+            conn
+            |> put_private(:samly_assertion_key, assertion_key)
+            |> pipethrough(pipeline)
+            |> State.delete_assertion(assertion_key)
+
             {conn, :success}
 
           _ ->
