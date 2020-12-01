@@ -9,8 +9,7 @@ defmodule Samly.SpData do
             entity_id: "",
             certfile: "",
             keyfile: "",
-            contact_name: "",
-            contact_email: "",
+            contacts: [],
             org_name: "",
             org_displayname: "",
             org_url: "",
@@ -24,8 +23,7 @@ defmodule Samly.SpData do
           entity_id: binary(),
           certfile: binary(),
           keyfile: binary(),
-          contact_name: binary(),
-          contact_email: binary(),
+          contacts: [contact],
           org_name: binary(),
           org_displayname: binary(),
           org_url: binary(),
@@ -36,6 +34,12 @@ defmodule Samly.SpData do
         }
 
   @type id :: binary
+  @type contact :: %{
+    type: :technical | :support | :administrative | :billing | :other,
+    name: binary(),
+    email: binary(),
+    phone_number: binary()
+  }
   @type requested_context :: %{
     optional(:class_refs | :decl_refs) => [binary()]
   }
@@ -57,13 +61,29 @@ defmodule Samly.SpData do
 
   @spec load_provider(map) :: %SpData{} | no_return
   def load_provider(%{} = opts_map) do
+    contacts =
+      opts_map
+      |> Map.get(:contacts, [%{
+        type: :technical,
+        name: @default_contact_name,
+        email: @default_contact_email,
+        phone_number: ""
+      }])
+      |> Enum.map(fn contact ->
+        %{
+          type: Map.get(contact, :type, :technical),
+          name: Map.get(contact, :name, ""),
+          email: Map.get(contact, :email, ""),
+          phone_number: Map.get(contact, :phone_number, ""),
+        }
+      end)
+
     sp_data = %__MODULE__{
       id: Map.get(opts_map, :id, ""),
       entity_id: Map.get(opts_map, :entity_id, ""),
       certfile: Map.get(opts_map, :certfile, ""),
       keyfile: Map.get(opts_map, :keyfile, ""),
-      contact_name: Map.get(opts_map, :contact_name, @default_contact_name),
-      contact_email: Map.get(opts_map, :contact_email, @default_contact_email),
+      contacts: contacts,
       org_name: Map.get(opts_map, :org_name, @default_org_name),
       org_displayname: Map.get(opts_map, :org_displayname, @default_org_displayname),
       org_url: Map.get(opts_map, :org_url, @default_org_url),
