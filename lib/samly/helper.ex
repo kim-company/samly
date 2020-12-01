@@ -48,22 +48,42 @@ defmodule Samly.Helper do
   end
 
   def gen_idp_signin_req(sp, idp_metadata, nameid_format) do
-    idp_signin_url = Esaml.esaml_idp_metadata(idp_metadata, :login_location)
+    binding = Esaml.esaml_idp_metadata(idp_metadata, :sso_request_binding)
+    idp_signin_url =
+      case binding do
+        :post -> Esaml.esaml_idp_metadata(idp_metadata, :sso_post_url)
+        :redirect -> Esaml.esaml_idp_metadata(idp_metadata, :sso_redirect_url)
+      end
+      |> to_char_list()
 
-    xml_frag = :esaml_sp.generate_authn_request(idp_signin_url, sp, nameid_format)
+    xml_frag = :esaml_sp.generate_authn_request(idp_signin_url, sp, nameid_format, binding)
 
     {idp_signin_url, xml_frag}
   end
 
   def gen_idp_signout_req(sp, idp_metadata, subject_rec, session_index) do
-    idp_signout_url = Esaml.esaml_idp_metadata(idp_metadata, :logout_location)
+    binding = Esaml.esaml_idp_metadata(idp_metadata, :slo_request_binding)
+    idp_signout_url =
+      case binding do
+        :post -> Esaml.esaml_idp_metadata(idp_metadata, :slo_post_url)
+        :redirect -> Esaml.esaml_idp_metadata(idp_metadata, :slo_redirect_url)
+      end
+      |> to_char_list()
+
     xml_frag = :esaml_sp.generate_logout_request(idp_signout_url, session_index, subject_rec, sp)
     {idp_signout_url, xml_frag}
   end
 
-  def gen_idp_signout_resp(sp, idp_metadata, signout_status) do
-    idp_signout_url = Esaml.esaml_idp_metadata(idp_metadata, :logout_location)
-    xml_frag = :esaml_sp.generate_logout_response(idp_signout_url, signout_status, sp)
+  def gen_idp_signout_resp(sp, idp_metadata, signout_status, in_response_to \\ "") do
+    binding = Esaml.esaml_idp_metadata(idp_metadata, :slo_response_binding)
+    idp_signout_url =
+      case binding do
+        :post -> Esaml.esaml_idp_metadata(idp_metadata, :slo_post_url)
+        :redirect -> Esaml.esaml_idp_metadata(idp_metadata, :slo_redirect_url)
+      end
+      |> to_char_list()
+
+    xml_frag = :esaml_sp.generate_logout_response(idp_signout_url, signout_status, sp, in_response_to)
     {idp_signout_url, xml_frag}
   end
 

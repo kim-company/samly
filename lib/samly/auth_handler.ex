@@ -79,7 +79,7 @@ defmodule Samly.AuthHandler do
         |> put_session("target_url", target_url)
         |> send_saml_request(
           idp_signin_url,
-          idp.use_redirect_for_req,
+          idp.sso_request_binding,
           req_xml_frag,
           relay_state
         )
@@ -117,7 +117,7 @@ defmodule Samly.AuthHandler do
         |> delete_session("samly_assertion_key")
         |> send_saml_request(
           idp_signout_url,
-          idp.use_redirect_for_req,
+          idp.slo_request_binding,
           req_xml_frag,
           relay_state
         )

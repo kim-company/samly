@@ -161,7 +161,7 @@ defmodule Samly.SPHandler do
     relay_state = conn.params["RelayState"] |> safe_decode_www_form()
 
     with {:ok, payload} <- Helper.decode_idp_signout_req(sp, saml_encoding, saml_request) do
-      Esaml.esaml_logoutreq(name: nameid, issuer: _issuer) = payload
+      Esaml.esaml_logoutreq(name: nameid, issuer: _issuer, id: in_response_to) = payload
       nameid = to_string(nameid)
       assertion_key = {idp_id, nameid}
 
@@ -179,11 +179,11 @@ defmodule Samly.SPHandler do
             {conn, :denied}
         end
 
-      {idp_signout_url, resp_xml_frag} = Helper.gen_idp_signout_resp(sp, idp_rec, return_status)
+      {idp_signout_url, resp_xml_frag} = Helper.gen_idp_signout_resp(sp, idp_rec, return_status, in_response_to)
 
       conn
       |> configure_session(drop: true)
-      |> send_saml_request(idp_signout_url, idp.use_redirect_for_req, resp_xml_frag, relay_state)
+      |> send_saml_request(idp_signout_url, idp.slo_response_binding, resp_xml_frag, relay_state)
     else
       error ->
         Logger.error("#{inspect(error)}")
@@ -192,7 +192,7 @@ defmodule Samly.SPHandler do
         conn
         |> send_saml_request(
           idp_signout_url,
-          idp.use_redirect_for_req,
+          idp.slo_response_binding,
           resp_xml_frag,
           relay_state
         )

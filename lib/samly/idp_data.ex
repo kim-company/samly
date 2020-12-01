@@ -17,7 +17,6 @@ defmodule Samly.IdpData do
             pre_session_create_pipeline: nil,
             post_signout_request_pipeline: nil,
             post_signout_response_pipeline: nil,
-            use_redirect_for_req: false,
             sign_requests: true,
             sign_metadata: true,
             signed_assertion_in_resp: true,
@@ -30,8 +29,12 @@ defmodule Samly.IdpData do
             certs: [],
             sso_redirect_url: nil,
             sso_post_url: nil,
+            sso_request_binding: :post,
+            sso_response_binding: :post,
             slo_redirect_url: nil,
             slo_post_url: nil,
+            slo_request_binding: :post,
+            slo_response_binding: :post,
             nameid_format: :unknown,
             fingerprints: [],
             esaml_idp_rec: Esaml.esaml_idp_metadata(),
@@ -46,7 +49,6 @@ defmodule Samly.IdpData do
           pre_session_create_pipeline: nil | module(),
           post_signout_request_pipeline: nil | module(),
           post_signout_response_pipeline: nil | module(),
-          use_redirect_for_req: boolean(),
           sign_requests: boolean(),
           sign_metadata: boolean(),
           signed_assertion_in_resp: boolean(),
@@ -58,8 +60,12 @@ defmodule Samly.IdpData do
           certs: certs(),
           sso_redirect_url: url(),
           sso_post_url: url(),
+          sso_request_binding: :esaml.binding(),
+          sso_response_binding: :esaml.binding(),
           slo_redirect_url: url(),
           slo_post_url: url(),
+          slo_request_binding: :esaml.binding(),
+          slo_response_binding: :esaml.binding(),
           nameid_format: nameid_format(),
           fingerprints: [binary()],
           esaml_idp_rec: :esaml_idp_metadata,
@@ -117,7 +123,7 @@ defmodule Samly.IdpData do
     |> set_metadata_file(opts_map)
     |> set_pipelines(opts_map)
     |> set_allowed_target_urls(opts_map)
-    |> set_boolean_attr(opts_map, :use_redirect_for_req)
+    |> set_bindings(opts_map)
     |> set_boolean_attr(opts_map, :sign_requests)
     |> set_boolean_attr(opts_map, :sign_metadata)
     |> set_boolean_attr(opts_map, :signed_assertion_in_resp)
@@ -216,6 +222,16 @@ defmodule Samly.IdpData do
     %IdpData{idp_data | allowed_target_urls: target_urls}
   end
 
+  defp set_bindings(%IdpData{} = idp_data, %{} = opts_map) do
+    %IdpData{
+      idp_data |
+      sso_request_binding: Map.get(opts_map, :sso_request_binding),
+      sso_response_binding: Map.get(opts_map, :sso_response_binding),
+      slo_request_binding: Map.get(opts_map, :slo_request_binding),
+      slo_response_binding: Map.get(opts_map, :slo_response_binding)
+    }
+  end
+
   @spec override_nameid_format(%IdpData{}, map()) :: %IdpData{}
   defp override_nameid_format(%IdpData{} = idp_data, idp_config) do
     nameid_format =
@@ -293,31 +309,18 @@ defmodule Samly.IdpData do
 
   # @spec to_esaml_idp_metadata(IdpData.t(), map()) :: :esaml_idp_metadata
   defp to_esaml_idp_metadata(%IdpData{} = idp_data, %{} = idp_config) do
-    {sso_url, slo_url} = get_sso_slo_urls(idp_data, idp_config)
-    sso_url = if sso_url, do: String.to_charlist(sso_url), else: []
-    slo_url = if slo_url, do: String.to_charlist(slo_url), else: :undefined
-
     Esaml.esaml_idp_metadata(
       entity_id: String.to_charlist(idp_data.entity_id),
-      login_location: sso_url,
-      logout_location: slo_url,
+      sso_redirect_url: idp_data.sso_redirect_url,
+      sso_post_url: idp_data.sso_post_url,
+      sso_request_binding: idp_data.sso_request_binding,
+      sso_response_binding: idp_data.sso_response_binding,
+      slo_redirect_url: idp_data.slo_redirect_url,
+      slo_post_url: idp_data.slo_post_url,
+      slo_request_binding: idp_data.slo_request_binding,
+      slo_response_binding: idp_data.slo_response_binding,
       name_format: idp_data.nameid_format
     )
-  end
-
-  defp get_sso_slo_urls(%IdpData{} = idp_data, %{use_redirect_for_req: true}) do
-    {idp_data.sso_redirect_url, idp_data.slo_redirect_url}
-  end
-
-  defp get_sso_slo_urls(%IdpData{} = idp_data, %{use_redirect_for_req: false}) do
-    {idp_data.sso_post_url, idp_data.slo_post_url}
-  end
-
-  defp get_sso_slo_urls(%IdpData{} = idp_data, _opts_map) do
-    {
-      idp_data.sso_post_url || idp_data.sso_redirect_url,
-      idp_data.slo_post_url || idp_data.slo_redirect_url
-    }
   end
 
   @spec idp_cert_fingerprints(certs()) :: [binary()]
@@ -351,11 +354,14 @@ defmodule Samly.IdpData do
           displayname: String.to_charlist(sp_data.org_displayname),
           url: String.to_charlist(sp_data.org_url)
         ),
-      tech:
+      contacts: Enum.map(sp_data.contacts, fn contact ->
         Esaml.esaml_contact(
-          name: String.to_charlist(sp_data.contact_name),
-          email: String.to_charlist(sp_data.contact_email)
-        ),
+          type: contact.type,
+          name: String.to_charlist(contact.name),
+          email: String.to_charlist(contact.email),
+          phone_number: String.to_charlist(contact.phone_number)
+        )
+      end),
       key: sp_data.key,
       certificate: sp_data.cert,
       sp_sign_requests: idp_data.sign_requests,
