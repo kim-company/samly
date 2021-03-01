@@ -16,9 +16,9 @@ defmodule Samly.AuthHandler do
     </head>
     <body>
       <script nonce=\"<%= nonce %>\">
-        document.addEventListener(\"DOMContentLoaded\", function () {
+        window.onload = function () {
           document.getElementById(\"sso-req-form\").submit();
-        });
+        };
       </script>
       <noscript>
         <p><strong>Note:</strong>
