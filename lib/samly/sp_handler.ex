@@ -206,4 +206,26 @@ defmodule Samly.SPHandler do
 
   defp safe_decode_www_form(nil), do: ""
   defp safe_decode_www_form(data), do: URI.decode_www_form(data)
+
+  defp handle_status_code(conn, status_code) do
+    status_query = URI.encode_query(%{"saml_status_code" => status_code})
+
+    target_url =
+      conn
+      |> auth_target_url(nil, nil)
+      |> URI.parse()
+      |> Map.update!(:query, fn
+        nil ->
+          URI.encode_query(status_query)
+
+        query ->
+          query
+          |> URI.decode_query()
+          |> Map.merge(status_query)
+          |> URI.encode_query()
+      end)
+      |> URI.to_string()
+
+    redirect(conn, 302, target_url)
+  end
 end
